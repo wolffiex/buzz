@@ -1,5 +1,8 @@
-use std::process::Command;
-use warp::{http::Uri, Filter};
+use std::convert::Infallible;
+use std::process::{Stdio, Command};
+use std::io;
+use warp::hyper::StatusCode;
+use warp::{http::Uri, Filter, reject, Rejection, Reply};
 
 #[tokio::main]
 async fn main() {
@@ -9,9 +12,11 @@ async fn main() {
 
     let www = warp::fs::dir("./www/");
     let wasm = warp::path("wasm")
-        .map(|| recompile_wasm())
-        .untuple_one()
-        .and(warp::fs::file("target/debug/buzz_wasm.wasm"));
+        .and_then(recompile_wasm)
+        //.and(warp::fs::file("target/debug/buzz_wasm.wasm"))
+        .recover(handle_rejection);
+
+
 
     println!("GOt her");
     warp::serve(index.or(www).or(wasm))
@@ -19,15 +24,38 @@ async fn main() {
         .await;
 }
 
-fn recompile_wasm() {
+async fn recompile_wasm() -> Result<impl warp::Reply, warp::Rejection> {
     println!("Recompiling");
-    Command::new("rustc")
+    let result = Command::new("rustc")
         .arg("--target").arg("wasm32-unknown-unknown")
         .arg("--out-dir").arg("./target/debug")
+        .arg("-L").arg("./target/debug/deps/")
         .arg("-O")
         .arg("./src/buzz_wasm.rs")
-        .spawn()
-        .expect("Wasm library build failed");
+        // .arg("./src/simwasm.rs")
+        .stderr(Stdio::piped())
+        .output();
 
-    println!("Did recom");
+    let mut err_message = String::from("Compilation error");
+    if let Ok(output) = result {
+        if output.status.success() {
+            return Ok(warp::reply::reply())
+        } else {
+            err_message = String::from_utf8(output.stderr).unwrap();
+        }
+    }
+
+    print!("{}", err_message);
+    println!();
+    return Err(warp::reject::reject());
+
+}
+
+async fn handle_rejection(err: Rejection) -> std::result::Result<impl Reply, Infallible> {
+    let (code, message) = (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "fRUME Inal Server Error".to_string(),
+        );
+
+    Ok(warp::reply::with_status(message, code))
 }
