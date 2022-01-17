@@ -1,8 +1,7 @@
-use std::convert::Infallible;
-use std::process::{Stdio, Command};
-use std::io;
+use std::process::Command;
 use warp::hyper::StatusCode;
-use warp::{http::Uri, Filter, reject, Rejection, Reply};
+use warp::{http::Uri, Filter, reject::Reject, reject, Rejection, Reply};
+
 
 #[tokio::main]
 async fn main() {
@@ -11,20 +10,30 @@ async fn main() {
         .map(|| warp::redirect(Uri::from_static("/index.html")));
 
     let www = warp::fs::dir("./www/");
-    let wasm = warp::path("wasm")
-        .and_then(recompile_wasm)
-        //.and(warp::fs::file("target/debug/buzz_wasm.wasm"))
+    let wasm_latest = warp::path("wasm-latest")
+        .and_then(|| async move {
+            match recompile_wasm() {
+                Ok(uri) => {
+                    Ok(warp::redirect(uri))
+                }
+                Err(err) => {
+                    Err(reject::custom(err))
+                }
+            }
+        })
         .recover(handle_rejection);
-
+    //.and(warp::fs::file("target/debug/buzz_wasm.wasm"));
+    // .and(recompile_wasm());
+    // .and(warp::fs::file("target/debug/buzz_wasm.wasm"));
 
 
     println!("GOt her");
-    warp::serve(index.or(www).or(wasm))
+    warp::serve(index.or(www).or(wasm_latest))
         .run(([127, 0, 0, 1], 3030))
         .await;
 }
 
-async fn recompile_wasm() -> Result<impl warp::Reply, warp::Rejection> {
+fn recompile_wasm() -> Result<Uri, CompilationError> {
     println!("Recompiling");
     let result = Command::new("rustc")
         .arg("--target").arg("wasm32-unknown-unknown")
@@ -32,30 +41,33 @@ async fn recompile_wasm() -> Result<impl warp::Reply, warp::Rejection> {
         .arg("-L").arg("./target/debug/deps/")
         .arg("-O")
         .arg("./src/buzz_wasm.rs")
-        // .arg("./src/simwasm.rs")
-        .stderr(Stdio::piped())
         .output();
 
     let mut err_message = String::from("Compilation error");
     if let Ok(output) = result {
         if output.status.success() {
-            return Ok(warp::reply::reply())
+            return Ok(Uri::from_static("/wasm-foo.wasm"));
         } else {
             err_message = String::from_utf8(output.stderr).unwrap();
         }
     }
-
-    print!("{}", err_message);
-    println!();
-    return Err(warp::reject::reject());
-
+    Err(CompilationError { msg: err_message } )
 }
 
-async fn handle_rejection(err: Rejection) -> std::result::Result<impl Reply, Infallible> {
-    let (code, message) = (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "fRUME Inal Server Error".to_string(),
-        );
 
-    Ok(warp::reply::with_status(message, code))
+#[derive(Debug)]
+struct CompilationError {
+    msg: String,
+}
+
+// We need a custom type to later extract from the `Rejection`. In
+// this case, we can reuse the error type itself.
+impl Reject for CompilationError {}
+
+async fn handle_rejection(err: Rejection) -> std::result::Result<impl Reply, Rejection> {
+    if let Some(e) = err.find::<CompilationError>() {
+        Ok(warp::reply::with_status(format!("{}", e.msg), StatusCode::INTERNAL_SERVER_ERROR))
+    } else {
+        Err(err)
+    }
 }

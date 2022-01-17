@@ -10,13 +10,13 @@ var importObject = {
 async function handleErrors(response) {
     if (!response.ok) {
         let resp = await response.text();
-        document.body.innerHTML = resp;
+        document.body.innerHTML = "<h1>WASM error</h1><pre>" + resp + "</pre>";
         throw new Error(response.statusText);
     }
     return response;
 }
 
-fetch('/wasm/').then(handleErrors)
+fetch('/wasm-latest').then(handleErrors)
     .then(response => response.arrayBuffer())
     .then(bytes => WebAssembly.instantiate(bytes, importObject))
     .then(obj => {
