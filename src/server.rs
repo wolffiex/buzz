@@ -42,7 +42,7 @@ fn recompile_wasm() -> Result<(), CompilationError> {
         .arg("-o").arg(WASM_FILENAME)
         .arg("-L").arg("./target/debug/deps/")
         .arg("-O")
-        .arg("./src/simwasm.rs")
+        .arg("./src/wasm.rs")
         .output();
 
     let mut err_message = String::from("Compilation error");
