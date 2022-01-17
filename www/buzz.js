@@ -1,9 +1,9 @@
-window.logOne = function() {
-    console.log("how", "one");
-}
-var importObject = {
+const importObject = {
     env: {
-        logOne
+        logOne: function(i) {
+            console.log("how", i);
+            return i+1;
+        }
     }
 };
 
