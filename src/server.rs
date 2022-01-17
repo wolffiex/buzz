@@ -3,6 +3,8 @@ use warp::hyper::StatusCode;
 use warp::{http::Uri, Filter, reject::Reject, reject, Rejection, Reply};
 
 
+const WASM_URI: &str = "buzzwasm";
+const WASM_FILENAME: &str = "target/debug/buzz.wasm";
 #[tokio::main]
 async fn main() {
     let index = warp::get()
@@ -13,8 +15,9 @@ async fn main() {
     let wasm_latest = warp::path("wasm-latest")
         .and_then(|| async move {
             match recompile_wasm() {
-                Ok(uri) => {
-                    Ok(warp::redirect(uri))
+                Ok(()) => {
+                    let uri = Uri::from_static(WASM_URI);
+                    Ok(warp::redirect::temporary(uri))
                 }
                 Err(err) => {
                     Err(reject::custom(err))
@@ -22,31 +25,30 @@ async fn main() {
             }
         })
         .recover(handle_rejection);
-    //.and(warp::fs::file("target/debug/buzz_wasm.wasm"));
-    // .and(recompile_wasm());
-    // .and(warp::fs::file("target/debug/buzz_wasm.wasm"));
 
+    let wasm_file = warp::path(WASM_URI)
+        .and(warp::fs::file(WASM_FILENAME));
 
     println!("GOt her");
-    warp::serve(index.or(www).or(wasm_latest))
+    warp::serve(index.or(www).or(wasm_latest).or(wasm_file))
         .run(([127, 0, 0, 1], 3030))
         .await;
 }
 
-fn recompile_wasm() -> Result<Uri, CompilationError> {
+fn recompile_wasm() -> Result<(), CompilationError> {
     println!("Recompiling");
     let result = Command::new("rustc")
         .arg("--target").arg("wasm32-unknown-unknown")
-        .arg("--out-dir").arg("./target/debug")
+        .arg("-o").arg(WASM_FILENAME)
         .arg("-L").arg("./target/debug/deps/")
         .arg("-O")
-        .arg("./src/buzz_wasm.rs")
+        .arg("./src/simwasm.rs")
         .output();
 
     let mut err_message = String::from("Compilation error");
     if let Ok(output) = result {
         if output.status.success() {
-            return Ok(Uri::from_static("/wasm-foo.wasm"));
+            return Ok(());
         } else {
             err_message = String::from_utf8(output.stderr).unwrap();
         }
