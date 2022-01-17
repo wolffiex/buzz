@@ -1,9 +1,9 @@
+window.logOne = function() {
+    console.log("how", "one");
+}
 var importObject = {
-    imports: {
-        logOne: arg => {
-            console.log("one", arg);
-            return true;
-        }
+    env: {
+        logOne
     }
 };
 
@@ -24,13 +24,11 @@ fetch('/wasm-latest').then(handleErrors)
         console.log('obj', obj);
         console.log(obj.instance);
         console.log(obj.instance.exports);
-        x = obj.instance.exports.main();
-        console.log('x', x);
 
         const add = obj.instance.exports.add;
-        console.log('add', add(2, 3));
-    })
-    .catch(err => console.error(err));
+        console.log('add 2 + 3', add(2, 3));
+    });
+    //.catch(err => console.error(err));
 
 function write(id, index, props) {
     newId = buzz.newId();

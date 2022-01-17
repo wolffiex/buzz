@@ -1,6 +1,12 @@
-#[no_mangle]
-pub extern fn add(x: i32, y: i32) -> i32 {
-    x + y
+extern "C" {
+    fn logOne();
 }
 
-fn main() {}
+#[no_mangle]
+pub extern fn add(x: i32, y: i32) -> i32 {
+    let mut res = 0;
+    unsafe {
+        logOne();
+    }
+    res + x + y
+}

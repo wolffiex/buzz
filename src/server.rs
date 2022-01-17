@@ -36,9 +36,9 @@ async fn main() {
 }
 
 fn recompile_wasm() -> Result<(), CompilationError> {
-    println!("Recompiling");
     let result = Command::new("rustc")
         .arg("--target").arg("wasm32-unknown-unknown")
+        .arg("--crate-type=cdylib")
         .arg("-o").arg(WASM_FILENAME)
         .arg("-L").arg("./target/debug/deps/")
         .arg("-O")
