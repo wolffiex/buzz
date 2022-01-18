@@ -30,11 +30,13 @@ pub extern fn add(x: i32, y: i32) -> i32 {
     dealloc(phello as *mut c_void, c_msg.to_bytes().len());
 
     let message = format!("{} and Rust!", c_msg.to_str().unwrap());
+    let len = message.as_bytes().len();
     let p = to_pointer(message);
 
 
     unsafe {
         consoleLog(p as *mut c_char);
+        dealloc(p as *mut c_void, len);
     }
     x + y
 }
