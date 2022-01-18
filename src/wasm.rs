@@ -4,12 +4,10 @@ use std::ptr;
 use std::os::raw::{c_char, c_void};
 
 extern "C" {
-    fn logOne(i: i32) -> i32;
-    fn logC(c: char);
     fn chello() -> *mut c_char;
     fn consoleLog(cc: *mut c_char);
-
 }
+
 fn dealloc(p: *mut c_void, size: usize) {
     unsafe {
         let _ = Vec::from_raw_parts(p, 0, size);
@@ -25,14 +23,23 @@ pub fn alloc(size: usize) -> *mut c_void {
 }
 
 
-
 #[no_mangle]
 pub extern fn add(x: i32, y: i32) -> i32 {
     let phello = unsafe { chello() };
     let c_msg = unsafe { CStr::from_ptr(phello) };
-    dealloc(phello as *mut c_void, c_msg.to_bytes().len() );
+    dealloc(phello as *mut c_void, c_msg.to_bytes().len());
 
     let message = format!("{} and Rust!", c_msg.to_str().unwrap());
+    let p = to_pointer(message);
+
+
+    unsafe {
+        consoleLog(p as *mut c_char);
+    }
+    x + y
+}
+
+fn to_pointer(message: String) -> *mut u8 {
     let bytes = message.as_bytes();
     let len = message.len();
     let p = alloc(len + 1) as *mut u8;
@@ -42,16 +49,5 @@ pub extern fn add(x: i32, y: i32) -> i32 {
         }
         ptr::write(p.offset(len as isize), 0);
     }
-
-
-
-
-    let res =unsafe {
-        // for c in message.chars() {
-        //     logC(c);
-        // }
-        consoleLog(p as *mut c_char);
-        logOne(98)
-    };
-    res + x + y
+    p
 }

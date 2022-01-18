@@ -10,14 +10,6 @@ const importObject = {
 
             console.log('wasm:', s);
         },
-        logC: function(c) {
-            console.log("c", String.fromCharCode(c));
-        },
-        logOne: function(i) {
-            console.log("how", i);
-            return i+1;
-        },
-
         chello:function(){
             var s="Hello from JavaScript";
             const termLength = s.length + 1;
