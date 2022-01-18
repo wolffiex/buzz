@@ -39,6 +39,7 @@ fn recompile_wasm() -> Result<(), CompilationError> {
     let result = Command::new("rustc")
         .arg("--target").arg("wasm32-unknown-unknown")
         .arg("--crate-type=cdylib")
+        .arg("--deny").arg("warnings")
         .arg("-o").arg(WASM_FILENAME)
         .arg("-L").arg("./target/debug/deps/")
         .arg("-O")

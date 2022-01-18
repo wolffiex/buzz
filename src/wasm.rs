@@ -30,8 +30,7 @@ pub extern fn add(x: i32, y: i32) -> i32 {
     dealloc(phello as *mut c_void, c_msg.to_bytes().len());
 
     let message = format!("{} and Rust!", c_msg.to_str().unwrap());
-    let len = message.as_bytes().len();
-    let p = to_pointer(message);
+    let (p, len) = to_pointer(message);
 
 
     unsafe {
@@ -41,7 +40,7 @@ pub extern fn add(x: i32, y: i32) -> i32 {
     x + y
 }
 
-fn to_pointer(message: String) -> *mut u8 {
+fn to_pointer(message: String) -> (*mut u8, usize) {
     let bytes = message.as_bytes();
     let len = message.len();
     let p = alloc(len + 1) as *mut u8;
@@ -51,5 +50,5 @@ fn to_pointer(message: String) -> *mut u8 {
         }
         ptr::write(p.offset(len as isize), 0);
     }
-    p
+    (p, len+1)
 }
