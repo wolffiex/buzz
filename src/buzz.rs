@@ -1,5 +1,6 @@
+use std::collections::HashMap;
 use ring::rand::SecureRandom;
-use base64::{encode};
+
 type ID = [u8; 16];
 
 #[allow(dead_code)]
@@ -33,10 +34,34 @@ fn get_random_id() -> ID {
     randoms
 }
 
+type PropName = &'static str;
+struct Record {
+    id1: ID,
+    props: String,
+    id2: ID,
+}
+
+impl Record {
+    pub fn new(id1: ID, props: String) -> Record {
+        let id2 = sign(id1, &props);
+        Record {
+            id1,
+            props,
+            id2,
+        }
+    }
+}
+
+fn sign(id1: ID, props: &String) -> ID {
+    [0; 16]
+}
+
 #[cfg(test)]
 #[test]
 fn test_it() {
-    let randoms = get_random_id();
-    println!("it's {:?}", randoms);
-    println!("encl {:?}", encode(randoms));
+    let mut props: HashMap<PropName, Value> = HashMap::new();
+
+    props.insert("name", Value::String("Billy Foo".to_string()));
+    props.insert("email", Value::String("billy@foo".to_string()));
+    println!("props: {:?}", props.len())
 }

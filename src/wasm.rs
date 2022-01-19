@@ -8,10 +8,22 @@ extern "C" {
     fn consoleLog(cc: *mut c_char);
 }
 
-fn dealloc(p: *mut c_void, size: usize) {
-    unsafe {
-        let _ = Vec::from_raw_parts(p, 0, size);
-    }
+
+#[no_mangle]
+pub fn get_handle() -> *mut c_void {
+    let mut pairs: Vec<String> = vec!["foo", "barr", "alpha", "momega"]
+        .into_iter().map(|s| s.to_string()).collect();
+    let p = pairs.as_mut_ptr();
+    mem::forget(pairs);
+    p as *mut c_void
+}
+
+#[no_mangle]
+pub fn drop_handle(p: *mut c_void) {
+    let pairs:Vec<String> = unsafe {
+        Vec::from_raw_parts(p as *mut String, 4, mem::size_of::<String>())
+    };
+    log(format!("well her {:?}", pairs.get(2)).to_string());
 }
 
 #[no_mangle]
@@ -22,6 +34,26 @@ pub fn alloc(size: usize) -> *mut c_void {
     p as *mut c_void
 }
 
+fn dealloc(p: *mut c_void, size: usize) {
+    unsafe {
+        let _ = Vec::from_raw_parts(p, 0, size);
+    }
+}
+
+
+fn log(s: String) {
+    let bytes = s.as_bytes();
+    let len = s.len();
+    let mut buf = Vec::with_capacity(len + 1);
+    let p: *mut u8 = buf.as_mut_ptr();
+    unsafe {
+        for i in 0..len as isize {
+            ptr::write(p.offset(i), bytes[i as usize]);
+        }
+        ptr::write(p.offset(len as isize), 0);
+        consoleLog(p as *mut c_char);
+    }
+}
 
 #[no_mangle]
 pub extern fn add(x: i32, y: i32) -> i32 {
@@ -30,25 +62,6 @@ pub extern fn add(x: i32, y: i32) -> i32 {
     dealloc(phello as *mut c_void, c_msg.to_bytes().len());
 
     let message = format!("{} and Rust!", c_msg.to_str().unwrap());
-    let (p, len) = to_pointer(message);
-
-
-    unsafe {
-        consoleLog(p as *mut c_char);
-        dealloc(p as *mut c_void, len);
-    }
+    log(message);
     x + y
-}
-
-fn to_pointer(message: String) -> (*mut u8, usize) {
-    let bytes = message.as_bytes();
-    let len = message.len();
-    let p = alloc(len + 1) as *mut u8;
-    unsafe {
-        for i in 0..len as isize {
-            ptr::write(p.offset(i), bytes[i as usize]);
-        }
-        ptr::write(p.offset(len as isize), 0);
-    }
-    (p, len+1)
 }
