@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::mem;
 use std::ptr;
 use std::os::raw::{c_char, c_void};
@@ -8,22 +8,53 @@ extern "C" {
     fn consoleLog(cc: *mut c_char);
 }
 
-
 #[no_mangle]
-pub fn get_handle() -> *mut c_void {
-    let mut pairs: Vec<String> = vec!["foo", "barr", "alpha", "momega"]
-        .into_iter().map(|s| s.to_string()).collect();
-    let p = pairs.as_mut_ptr();
-    mem::forget(pairs);
-    p as *mut c_void
+pub fn get_handle() -> *const c_char {
+    let c = CString::new("[\"kej8==\", {x:99}]").expect("CString::new failed");
+    let p = c.as_ptr();
+    mem::forget(c);
+    p
 }
 
 #[no_mangle]
-pub fn drop_handle(p: *mut c_void) {
-    let pairs:Vec<String> = unsafe {
-        Vec::from_raw_parts(p as *mut String, 4, mem::size_of::<String>())
+pub fn write(p_to_insert: *mut c_char, p_transcript: *mut c_char) -> *const c_char {
+    let to_insert = unsafe {
+        CString::from_raw(p_to_insert)
     };
-    log(format!("well her {:?}", pairs.get(2)).to_string());
+
+    let transcript = unsafe {
+        CString::from_raw(p_transcript)
+    };
+
+
+    let i_bytes = to_insert.to_bytes();
+    let t_bytes = transcript.to_bytes();
+    log(format!("ib {}", String::from_utf8(i_bytes.clone().to_vec()).unwrap()));
+    log(format!("tb {}", String::from_utf8(t_bytes.clone().to_vec()).unwrap()));
+
+
+    let mut vec : Vec<u8> = Vec::from(t_bytes);
+    vec.pop(); // remove null terminator
+    let ins= Vec::from(i_bytes);
+    vec.extend(&ins );
+    // let stripped = &t_bytes[0..i_bytes.len()-1];
+    // let combined = [stripped, i_bytes].concat();
+    let new_t = CString::new(vec).unwrap();
+    let clonet = new_t.clone();
+    log(format!("ins {}", clonet.to_str().unwrap()));
+
+    let p = new_t.as_ptr();
+    mem::forget(new_t);
+    log("forgotten".to_string());
+    p
+}
+
+#[no_mangle]
+pub fn drop_handle(p: *mut c_char) {
+    let c = unsafe {
+        CString::from_raw(p)
+    };
+    log(format!("dong {}", c.to_str().unwrap()))
 }
 
 #[no_mangle]

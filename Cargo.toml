@@ -14,3 +14,8 @@ base64 = "0.13.0"
 [[bin]]
 name = "buzz-server"
 path = "src/server.rs"
+
+# This is stupid but it tells CLion to look at that file
+[[bin]]
+name = "buzz-wasm"
+path = "src/wasm.rs"

@@ -38,16 +38,30 @@ async function handleErrors(response) {
 fetch('/wasm-latest').then(handleErrors)
     .then(response => response.arrayBuffer())
     .then(bytes => WebAssembly.instantiate(bytes, importObject))
-    .then(obj => {
-        instanceExports = obj.instance.exports;
+    .then(wasm => {
+        instanceExports = wasm.instance.exports;
         console.log('instance E', instanceExports);
-        window.wasm = obj;
-        console.log('obj', obj);
-        console.log(obj.instance);
-        console.log(obj.instance.exports);
+        window.wasm = wasm;
+        console.log('obj', wasm);
+        console.log(wasm.instance);
+        console.log(wasm.instance.exports);
 
-        const add = obj.instance.exports.add;
+        const add = wasm.instance.exports.add;
         console.log('add 2 + 3', add(2, 3));
+
+        let h = wasm.instance.exports.get_handle()
+
+        var s = '["b8877ff==", {name: "Book BUry", val:22}]';
+        const termLength = s.length + 1;
+        var p = instanceExports.alloc(termLength);
+        var m = new Uint8Array(instanceExports.memory.buffer, p, termLength);
+        for (var i = 0; i < s.length; i++)
+            m[i] = s.charCodeAt(i);
+        m[s.length] = 0;
+        let hh = wasm.instance.exports.write(p, h);
+        console.log("diid write", hh);
+        wasm.instance.exports.drop_handle(hh);
+
     });
 
 //.catch(err => console.error(err));
