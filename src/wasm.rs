@@ -31,6 +31,23 @@ fn init_records() {
     }
 }
 
+fn with_records<T, F>(fun: F) -> T where
+    F: FnOnce(&mut HashMap<String, String>) -> T
+{
+    let result = unsafe {
+        if let None = RECORDS {
+            RECORDS = Some(HashMap::new());
+        }
+        if let Some(records) = &mut RECORDS {
+            Some(fun(records))
+        } else {
+            None
+        }
+    };
+
+    return result.unwrap();
+}
+
 pub fn convert_cstring(cs: *mut c_char) -> String {
     let cs = unsafe {
         CString::from_raw(cs)
@@ -49,6 +66,12 @@ pub fn write(ckey: *mut c_char, cvalue: *mut c_char) -> bool {
             records.insert(key, value);
         }
     };
+
+    let res = with_records(|records| -> Option<String> {
+        records.insert("xx".to_string(), "aa".to_string())
+    });
+    log(format!("res had {:?}", res));
+
     true
 }
 
@@ -79,10 +102,9 @@ fn to_leaked_cstring(s: &String) -> *const c_char {
 
 #[no_mangle]
 pub fn free_cstring(p: *mut c_char) {
-    let c = unsafe {
+    let _ = unsafe {
         CString::from_raw(p)
     };
-    log(format!("dropping {}", c.to_str().unwrap()))
 }
 
 #[no_mangle]

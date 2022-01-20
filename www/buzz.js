@@ -57,9 +57,6 @@ fetch('/wasm-latest').then(handleErrors)
         console.log("read a", x);
         console.log("read c", read("c"));
         console.log("read eee", read("eee"));
-
-        wasm.instance.exports.read(toCString("kk"));
-
     });
 
 //.catch(err => console.error(err));
@@ -79,7 +76,7 @@ function write(k, v) {
 
 function read(k) {
     let p = wasm.instance.exports.read(toCString(k));
-    let s = fromCString(p);
+    return fromCString(p);
 }
 
 function fromCString(ptr) {
