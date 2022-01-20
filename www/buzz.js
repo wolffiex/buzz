@@ -49,25 +49,46 @@ fetch('/wasm-latest').then(handleErrors)
         const add = wasm.instance.exports.add;
         console.log('add 2 + 3', add(2, 3));
 
-        let h = wasm.instance.exports.get_handle()
+        wasm.instance.exports.init_records();
+        write("a", "b");
+        write("c", "d");
+        let x = read("a");
 
-        var s = '["b8877ff==", {name: "Book BUry", val:22}]';
-        const termLength = s.length + 1;
-        var p = instanceExports.alloc(termLength);
-        var m = new Uint8Array(instanceExports.memory.buffer, p, termLength);
-        for (var i = 0; i < s.length; i++)
-            m[i] = s.charCodeAt(i);
-        m[s.length] = 0;
-        let hh = wasm.instance.exports.write(p, h);
-        console.log("diid write", hh);
-        wasm.instance.exports.drop_handle(hh);
+        console.log("read a", x);
+        console.log("read c", read("c"));
+        console.log("read eee", read("eee"));
+
+        wasm.instance.exports.read(toCString("kk"));
 
     });
 
 //.catch(err => console.error(err));
+function toCString(s) {
+    const termLength = s.length + 1;
+    var p = instanceExports.alloc(termLength);
+    var m = new Uint8Array(instanceExports.memory.buffer, p, termLength);
+    for (var i = 0; i < s.length; i++)
+        m[i] = s.charCodeAt(i);
+    m[s.length] = 0;
+    return p;
+}
 
-function write(id, index, props) {
-    newId = buzz.newId();
-    buzz.write(id, edgeName, props);
-    return newId;
+function write(k, v) {
+    wasm.instance.exports.write( toCString(k), toCString(v));
+}
+
+function read(k) {
+    let p = wasm.instance.exports.read(toCString(k));
+    let s = fromCString(p);
+}
+
+function fromCString(ptr) {
+    var m = new Uint8Array(instanceExports.memory.buffer, ptr);
+    var s = "";
+    let i = 0;
+    while (m[i] != 0) {
+        s += String.fromCharCode(m[i++]);
+    }
+    wasm.instance.exports.free_cstring(ptr);
+    return s;
 }

@@ -16,6 +16,7 @@ name = "buzz-server"
 path = "src/server.rs"
 
 # This is stupid but it tells CLion to look at that file
-[[bin]]
-name = "buzz-wasm"
+[lib]
+name = "buzzwasm"
+crate-type = ["cdylib"]
 path = "src/wasm.rs"

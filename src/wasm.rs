@@ -2,6 +2,9 @@ use std::ffi::{CStr, CString};
 use std::mem;
 use std::ptr;
 use std::os::raw::{c_char, c_void};
+use std::collections::HashMap;
+
+static mut RECORDS: Option<HashMap<String, String>> = None;
 
 extern "C" {
     fn chello() -> *mut c_char;
@@ -16,45 +19,70 @@ pub fn get_handle() -> *const c_char {
     p
 }
 
+
 #[no_mangle]
-pub fn write(p_to_insert: *mut c_char, p_transcript: *mut c_char) -> *const c_char {
-    let to_insert = unsafe {
-        CString::from_raw(p_to_insert)
+fn init_records() {
+    log("want to init".to_string());
+    unsafe {
+        if let None = RECORDS {
+            RECORDS = Some(HashMap::new());
+            log("initedei".to_string());
+        }
+    }
+}
+
+pub fn convert_cstring(cs: *mut c_char) -> String {
+    let cs = unsafe {
+        CString::from_raw(cs)
     };
+    String::from_utf8(cs.to_bytes().to_vec()).unwrap()
+}
 
-    let transcript = unsafe {
-        CString::from_raw(p_transcript)
+#[no_mangle]
+pub fn write(ckey: *mut c_char, cvalue: *mut c_char) -> bool {
+    let key = convert_cstring(ckey);
+    let value = convert_cstring(cvalue);
+
+    unsafe {
+        if let Some(records) = &mut RECORDS {
+            log(format!("inserted {:?}", &key));
+            records.insert(key, value);
+        }
     };
+    true
+}
 
+#[no_mangle]
+pub fn read(ckey: *mut c_char) -> *const c_char {
+    let key = convert_cstring(ckey);
+    let value = unsafe {
+        if let Some(records) = &RECORDS {
+            records.get(&*key)
+        } else {
+            None
+        }
+    };
+    let as_string = match value {
+        Some(s) => s.clone(),
+        None => String::new(),
+    };
+    log(format!("found {:?}", as_string));
+    to_leaked_cstring(&as_string)
+}
 
-    let i_bytes = to_insert.to_bytes();
-    let t_bytes = transcript.to_bytes();
-    log(format!("ib {}", String::from_utf8(i_bytes.clone().to_vec()).unwrap()));
-    log(format!("tb {}", String::from_utf8(t_bytes.clone().to_vec()).unwrap()));
-
-
-    let mut vec : Vec<u8> = Vec::from(t_bytes);
-    vec.pop(); // remove null terminator
-    let ins= Vec::from(i_bytes);
-    vec.extend(&ins );
-    // let stripped = &t_bytes[0..i_bytes.len()-1];
-    // let combined = [stripped, i_bytes].concat();
-    let new_t = CString::new(vec).unwrap();
-    let clonet = new_t.clone();
-    log(format!("ins {}", clonet.to_str().unwrap()));
-
-    let p = new_t.as_ptr();
-    mem::forget(new_t);
-    log("forgotten".to_string());
+fn to_leaked_cstring(s: &String) -> *const c_char {
+    let cs = CString::new(s.to_string()).unwrap();
+    let p = cs.as_ptr();
+    mem::forget(cs);
     p
 }
 
 #[no_mangle]
-pub fn drop_handle(p: *mut c_char) {
+pub fn free_cstring(p: *mut c_char) {
     let c = unsafe {
         CString::from_raw(p)
     };
-    log(format!("dong {}", c.to_str().unwrap()))
+    log(format!("dropping {}", c.to_str().unwrap()))
 }
 
 #[no_mangle]
