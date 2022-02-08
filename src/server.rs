@@ -2,6 +2,7 @@ use std::process::Command;
 use warp::hyper::StatusCode;
 use warp::{http::Uri, Filter, reject::Reject, reject, Rejection, Reply};
 
+mod buzz;
 
 const WASM_URI: &str = "buzzwasm";
 const WASM_FILENAME: &str = "target/debug/buzz.wasm";

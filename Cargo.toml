@@ -3,8 +3,6 @@ name = "buzz"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 ring = "0.16.20"
 tokio = { version = "1", features = ["full"] }
@@ -14,9 +12,3 @@ base64 = "0.13.0"
 [[bin]]
 name = "buzz-server"
 path = "src/server.rs"
-
-# This is stupid but it tells CLion to look at that file
-[lib]
-name = "buzzwasm"
-crate-type = ["cdylib"]
-path = "src/wasm.rs"
