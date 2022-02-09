@@ -1,5 +1,5 @@
 type Id = [u8;8];
 
 pub fn get_id() -> Id {
-    unimplemented!();
+    [0;8]
 }
