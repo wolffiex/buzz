@@ -1,8 +1,8 @@
 use axum::{
-    body::{BoxBody, StreamBody},
-    http::{header, StatusCode},
+    body::{Body, BoxBody, HttpBody, StreamBody},
+    http::{header, StatusCode, HeaderMap},
     response::Response,
-    response::{Headers, Html, IntoResponse},
+    response::{Html, IntoResponse},
     routing::get,
     Router,
 };
@@ -44,6 +44,8 @@ async fn handler() -> Html<String> {
 }
 
 async fn wasm_handler(dir_lock: Arc<Mutex<PathBuf>>) -> impl IntoResponse {
+    let mut headers = HeaderMap::new();
+
     let out_dir = dir_lock.lock().await;
     let dir_name = out_dir.to_str().unwrap();
     println!("drn {}", dir_name);
@@ -56,29 +58,28 @@ async fn wasm_handler(dir_lock: Arc<Mutex<PathBuf>>) -> impl IntoResponse {
         .arg("--message-format").arg("json")
         .output();
 
-    let stdo = result.unwrap().stdout;
-    let json = str::from_utf8(&stdo);
-    println!("r: {}", json.unwrap());
+    let body : Response<BoxBody> = match result {
+        Ok(output) => {
+            let stdo = output.stdout;
+            let json = str::from_utf8(&stdo);
+            println!("r: {}", json.unwrap());
 
-    let mut wasm_file = out_dir.clone();
-    wasm_file.push("wasm32-unknown-unknown/debug/wasm.wasm");
+            let mut wasm_file = out_dir.clone();
+            wasm_file.push("wasm32-unknown-unknown/debug/wasm.wasm");
 
-    let file = tokio::fs::File::open(wasm_file).await.unwrap();
-    // {
-    //     Ok(file) => file,
-    //     Err(err) => return Err((StatusCode::NOT_FOUND, format!("File not found: {}", err))),
-    // };
-    // convert the `AsyncRead` into a `Stream`
-    let stream = ReaderStream::new(file);
-    // convert the `Stream` into an `axum::body::HttpBody`
-    let body = StreamBody::new(stream);
-    let headers = Headers([
-        (header::CONTENT_TYPE, "text/toml; charset=utf-8"),
-        (
-            header::CONTENT_DISPOSITION,
-            "attachment; filename=\"Cargo.toml\"",
-        ),
-    ]);
+            let file = tokio::fs::File::open(wasm_file).await.unwrap();
+            // {
+            //     Ok(file) => file,
+            //     Err(err) => return Err((StatusCode::NOT_FOUND, format!("File not found: {}", err))),
+            // };
+            // convert the `AsyncRead` into a `Stream`
+            let stream = ReaderStream::new(file);
+            // convert the `Stream` into an `axum::body::HttpBody`
+            StreamBody::new(stream).into_response()
+        }
+        Err(e) => ().into_response(),
+    };
+    ([(header::CONTENT_TYPE, "application/wasm")]);
 
     (headers, body)
     // Html(format!("Hello wasm {:?}", result).into())
