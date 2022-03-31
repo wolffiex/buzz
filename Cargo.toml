@@ -10,3 +10,4 @@ members = ["wasm", "webassembly-line"]
 tokio = { version = "1.17.0", features = ["full"] }
 axum = "0.4.7"
 uuid = { version = "0.8.2", features = ["serde", "v4"] }
+tokio-util = { version = "0.7.1", features = ["io"] }

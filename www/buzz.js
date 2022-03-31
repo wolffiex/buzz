@@ -35,7 +35,7 @@ async function handleErrors(response) {
     return response;
 }
 
-fetch('/wasm-latest').then(handleErrors)
+fetch('/wasm').then(handleErrors)
     .then(response => response.arrayBuffer())
     .then(bytes => WebAssembly.instantiate(bytes, importObject))
     .then(wasm => {
