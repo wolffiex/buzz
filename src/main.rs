@@ -1,6 +1,6 @@
 use axum::{
-    body::{Body, BoxBody, HttpBody, StreamBody},
-    http::{header, StatusCode, HeaderMap},
+    body::{BoxBody, StreamBody},
+    http::{header, HeaderMap, HeaderValue},
     response::Response,
     response::{Html, IntoResponse},
     routing::get,
@@ -48,7 +48,6 @@ async fn wasm_handler(dir_lock: Arc<Mutex<PathBuf>>) -> impl IntoResponse {
 
     let out_dir = dir_lock.lock().await;
     let dir_name = out_dir.to_str().unwrap();
-    println!("drn {}", dir_name);
     #[rustfmt::skip]
     let result = Command::new("cargo")
         .arg("build")
@@ -58,28 +57,28 @@ async fn wasm_handler(dir_lock: Arc<Mutex<PathBuf>>) -> impl IntoResponse {
         .arg("--message-format").arg("json")
         .output();
 
-    let body : Response<BoxBody> = match result {
+    let body: Response<BoxBody> = match result {
         Ok(output) => {
-            let stdo = output.stdout;
-            let json = str::from_utf8(&stdo);
+            let json = str::from_utf8(&output.stdout);
             println!("r: {}", json.unwrap());
 
             let mut wasm_file = out_dir.clone();
             wasm_file.push("wasm32-unknown-unknown/debug/wasm.wasm");
 
-            let file = tokio::fs::File::open(wasm_file).await.unwrap();
-            // {
-            //     Ok(file) => file,
-            //     Err(err) => return Err((StatusCode::NOT_FOUND, format!("File not found: {}", err))),
-            // };
-            // convert the `AsyncRead` into a `Stream`
-            let stream = ReaderStream::new(file);
-            // convert the `Stream` into an `axum::body::HttpBody`
-            StreamBody::new(stream).into_response()
+            match tokio::fs::File::open(wasm_file).await {
+                Ok(file) => {
+                    headers.insert(
+                        header::CONTENT_TYPE,
+                        HeaderValue::from_static("application/wasm"),
+                    );
+                    let stream = ReaderStream::new(file);
+                    StreamBody::new(stream).into_response()
+                }
+                Err(_) => ().into_response(),
+            }
         }
-        Err(e) => ().into_response(),
+        Err(_) => ().into_response(),
     };
-    ([(header::CONTENT_TYPE, "application/wasm")]);
 
     (headers, body)
     // Html(format!("Hello wasm {:?}", result).into())
