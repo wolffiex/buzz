@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 type Id = [u8;8];
 
 type Topic = [u8;16];
