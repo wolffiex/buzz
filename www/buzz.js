@@ -28,6 +28,7 @@ const importObject = {
 
 async function handleErrors(response) {
     if (!response.ok) {
+        console.log('not ok')
         let resp = await response.text();
         document.body.innerHTML = "<h1>WASM error</h1><pre>" + resp + "</pre>";
         throw new Error(resp);
@@ -49,14 +50,6 @@ fetch('/wasm').then(handleErrors)
         const add = wasm.instance.exports.add;
         console.log('add 2 + 3', add(2, 3));
 
-        wasm.instance.exports.init_records();
-        write("a", "b");
-        write("c", "d");
-        let x = read("a");
-
-        console.log("read a", x);
-        console.log("read c", read("c"));
-        console.log("read eee", read("eee"));
     });
 
 //.catch(err => console.error(err));

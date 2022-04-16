@@ -2,9 +2,9 @@ use axum::body::Body;
 use axum::handler::Handler;
 use axum::{
     body::{BoxBody, StreamBody},
-    http::{header, HeaderMap, HeaderValue, request::Request},
-    response::{Html, Response},
+    http::{header, request::Request, HeaderMap, HeaderValue},
     response::IntoResponse,
+    response::{Html, Response},
     routing::get,
     Router,
 };
@@ -19,6 +19,19 @@ use tokio_util::io::ReaderStream;
 use tower::ServiceExt;
 use tower_http::services::fs::ServeDir;
 use uuid::Uuid;
+
+use serde::Deserialize;
+use serde_json::Result;
+
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "reason")]
+enum CargoMessage {
+    #[serde(rename = "compiler-message")]
+    CompilerMessage { package_id: String },
+    #[serde(rename = "build-finished")]
+    BuildFinished { success: bool },
+}
 
 #[tokio::main]
 async fn main() {
@@ -49,7 +62,7 @@ async fn main() {
 async fn www_handler(req: Request<Body>) -> impl IntoResponse {
     return match ServeDir::new("www").oneshot(req).await {
         Ok(res) => res,
-        Err(_) => unimplemented!()
+        Err(_) => unimplemented!(),
     };
 }
 
@@ -69,8 +82,21 @@ async fn wasm_handler(dir_lock: Arc<Mutex<PathBuf>>) -> impl IntoResponse {
 
     let body: Response<BoxBody> = match result {
         Ok(output) => {
-            let json = str::from_utf8(&output.stdout);
-            println!("r: {}", json.unwrap());
+            let json_lines = str::from_utf8(&output.stdout);
+
+            for json_string in json_lines.unwrap().lines() {
+                // println!("j: {}\n***\n", json_string);
+                let maybe_message: Result<CargoMessage> = serde_json::from_str(json_string);
+                let p = match maybe_message {
+                    Ok(message) => match message{
+                        CargoMessage::CompilerMessage { package_id } => format!("cm: {}", package_id),
+                        CargoMessage::BuildFinished { success } => format!("bf: {}", success),
+                    }
+                    Err(e) => format!("err: {}", e),
+                };
+                println!("{}", p);
+            }
+            println!("----");
 
             let mut wasm_file = out_dir.clone();
             wasm_file.push("wasm32-unknown-unknown/debug/wasm.wasm");
