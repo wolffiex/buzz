@@ -8,6 +8,7 @@ use axum::{
     routing::get,
     Router,
 };
+use std::collections::HashMap;
 use std::env::temp_dir;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -21,14 +22,16 @@ use tower_http::services::fs::ServeDir;
 use uuid::Uuid;
 
 use serde::Deserialize;
-use serde_json::Result;
-
+use serde_json::{Result, Value};
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "reason")]
 enum CargoMessage {
     #[serde(rename = "compiler-message")]
-    CompilerMessage { package_id: String },
+    CompilerMessage {
+        package_id: String,
+        message: Value,
+    },
     #[serde(rename = "build-finished")]
     BuildFinished { success: bool },
 }
@@ -40,9 +43,6 @@ async fn main() {
     println!("Build dir: {}", temp_dir.to_str().unwrap());
     let wasm_build_dir = Arc::new(Mutex::new(temp_dir));
 
-    // build our application with a route
-    //     let app = Router::new().nest("/static", get(handler))
-
     let app = Router::new()
         .route(
             "/wasm",
@@ -50,7 +50,6 @@ async fn main() {
         )
         .fallback(www_handler.into_service());
 
-    // run it
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("listening on {}", addr);
     axum::Server::bind(&addr)
@@ -82,16 +81,18 @@ async fn wasm_handler(dir_lock: Arc<Mutex<PathBuf>>) -> impl IntoResponse {
 
     let body: Response<BoxBody> = match result {
         Ok(output) => {
-            let json_lines = str::from_utf8(&output.stdout);
+            let json_lines = str::from_utf8(&output.stdout).unwrap();
 
-            for json_string in json_lines.unwrap().lines() {
+            for json_string in json_lines.lines() {
                 // println!("j: {}\n***\n", json_string);
                 let maybe_message: Result<CargoMessage> = serde_json::from_str(json_string);
                 let p = match maybe_message {
-                    Ok(message) => match message{
-                        CargoMessage::CompilerMessage { package_id } => format!("cm: {}", package_id),
+                    Ok(message) => match message {
+                        CargoMessage::CompilerMessage { message, package_id } => {
+                            format!("cm: {:#?}\n{}\n", message, package_id)
+                        }
                         CargoMessage::BuildFinished { success } => format!("bf: {}", success),
-                    }
+                    },
                     Err(e) => format!("err: {}", e),
                 };
                 println!("{}", p);
