@@ -1,12 +1,13 @@
+use axum::body::Body;
+use axum::handler::Handler;
 use axum::{
     body::{BoxBody, StreamBody},
-    http::{header, HeaderMap, HeaderValue},
-    response::Response,
-    response::{Html, IntoResponse},
+    http::{header, HeaderMap, HeaderValue, request::Request},
+    response::{Html, Response},
+    response::IntoResponse,
     routing::get,
     Router,
 };
-use buzz;
 use std::env::temp_dir;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -15,6 +16,8 @@ use std::str;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio_util::io::ReaderStream;
+use tower::ServiceExt;
+use tower_http::services::fs::ServeDir;
 use uuid::Uuid;
 
 #[tokio::main]
@@ -22,12 +25,17 @@ async fn main() {
     let mut temp_dir = temp_dir();
     temp_dir.push(format!("buzz-{}", Uuid::new_v4()));
     println!("Build dir: {}", temp_dir.to_str().unwrap());
-    let shared_dir = Arc::new(Mutex::new(temp_dir));
+    let wasm_build_dir = Arc::new(Mutex::new(temp_dir));
 
     // build our application with a route
+    //     let app = Router::new().nest("/static", get(handler))
+
     let app = Router::new()
-        .route("/", get(handler))
-        .route("/wasm", get(move || wasm_handler(Arc::clone(&shared_dir))));
+        .route(
+            "/wasm",
+            get(move || wasm_handler(Arc::clone(&wasm_build_dir))),
+        )
+        .fallback(www_handler.into_service());
 
     // run it
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
@@ -38,9 +46,11 @@ async fn main() {
         .unwrap();
 }
 
-async fn handler() -> Html<String> {
-    let id = buzz::get_id();
-    Html(format!("Hello buzz {:?}", id).into())
+async fn www_handler(req: Request<Body>) -> impl IntoResponse {
+    return match ServeDir::new("www").oneshot(req).await {
+        Ok(res) => res,
+        Err(_) => unimplemented!()
+    };
 }
 
 async fn wasm_handler(dir_lock: Arc<Mutex<PathBuf>>) -> impl IntoResponse {
