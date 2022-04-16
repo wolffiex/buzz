@@ -28,10 +28,7 @@ use serde_json::{Result, Value};
 #[serde(tag = "reason")]
 enum CargoMessage {
     #[serde(rename = "compiler-message")]
-    CompilerMessage {
-        package_id: String,
-        message: Value,
-    },
+    CompilerMessage { package_id: String, message: Value },
     #[serde(rename = "build-finished")]
     BuildFinished { success: bool },
 }
@@ -83,35 +80,47 @@ async fn wasm_handler(dir_lock: Arc<Mutex<PathBuf>>) -> impl IntoResponse {
         Ok(output) => {
             let json_lines = str::from_utf8(&output.stdout).unwrap();
 
-            for json_string in json_lines.lines() {
-                // println!("j: {}\n***\n", json_string);
-                let maybe_message: Result<CargoMessage> = serde_json::from_str(json_string);
-                let p = match maybe_message {
-                    Ok(message) => match message {
-                        CargoMessage::CompilerMessage { message, package_id } => {
-                            format!("cm: {:#?}\n{}\n", message, package_id)
-                        }
-                        CargoMessage::BuildFinished { success } => format!("bf: {}", success),
-                    },
-                    Err(e) => format!("err: {}", e),
-                };
-                println!("{}", p);
-            }
-            println!("----");
+            let messages = json_lines.lines().map(serde_json::from_str);
 
-            let mut wasm_file = out_dir.clone();
-            wasm_file.push("wasm32-unknown-unknown/debug/wasm.wasm");
+            let (build_result, compiler_messages): (Option<bool>, Vec<Value>) = messages.fold(
+                (None, Vec::new()),
+                |mut last, cargo_message| match cargo_message.expect("Missing cargo message type") {
+                    CargoMessage::CompilerMessage { message, .. } => {
+                        last.1.push(message);
+                        (last.0, last.1)
+                    }
+                    CargoMessage::BuildFinished { success } => (Some(success), last.1),
+                },
+            );
 
-            match tokio::fs::File::open(wasm_file).await {
-                Ok(file) => {
-                    headers.insert(
-                        header::CONTENT_TYPE,
-                        HeaderValue::from_static("application/wasm"),
-                    );
-                    let stream = ReaderStream::new(file);
-                    StreamBody::new(stream).into_response()
+            if matches!(build_result, Some(true)) {
+                println!(
+                    "Build result : {}",
+                    build_result.expect("Compiler produces build-result")
+                );
+                let mut wasm_file = out_dir.clone();
+                wasm_file.push("wasm32-unknown-unknown/debug/wasm.wasm");
+
+                match tokio::fs::File::open(wasm_file).await {
+                    Ok(file) => {
+                        headers.insert(
+                            header::CONTENT_TYPE,
+                            HeaderValue::from_static("application/wasm"),
+                        );
+                        let stream = ReaderStream::new(file);
+                        StreamBody::new(stream).into_response()
+                    }
+                    Err(_) => ().into_response(),
                 }
-                Err(_) => ().into_response(),
+            } else {
+                println!(
+                    "Build result : {}",
+                    build_result.expect("Compiler produces build-result")
+                );
+                for v in compiler_messages {
+                    println!("cm: {:#?}", v);
+                }
+                ().into_response()
             }
         }
         Err(_) => ().into_response(),
