@@ -2,7 +2,7 @@ use axum::body::Body;
 use axum::handler::Handler;
 use axum::{
     body::{BoxBody, StreamBody},
-    http::{header, request::Request, HeaderMap, HeaderValue},
+    http::{header, header::HeaderName, request::Request, HeaderMap, HeaderValue, StatusCode},
     response::IntoResponse,
     response::{Html, Response},
     routing::get,
@@ -117,10 +117,17 @@ async fn wasm_handler(dir_lock: Arc<Mutex<PathBuf>>) -> impl IntoResponse {
                     "Build result : {}",
                     build_result.expect("Compiler produces build-result")
                 );
-                for v in compiler_messages {
-                    println!("cm: {:#?}", v);
-                }
-                ().into_response()
+                // for v in compiler_messages {
+                //     println!("cm: {:#?}", v);
+                // }
+                let json_messages = serde_json::to_string(&Value::Array(compiler_messages))
+                    .expect("Compiler JSON Messages");
+
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from(json_messages))
+                    .unwrap()
+                    .into_response()
             }
         }
         Err(_) => ().into_response(),
