@@ -31,6 +31,8 @@ enum CargoMessage {
     CompilerMessage { package_id: String, message: Value },
     #[serde(rename = "build-finished")]
     BuildFinished { success: bool },
+    #[serde(rename = "compiler-artifact")]
+    CompilerArtifact { },
 }
 
 #[tokio::main]
@@ -90,6 +92,8 @@ async fn wasm_handler(dir_lock: Arc<Mutex<PathBuf>>) -> impl IntoResponse {
                         (last.0, last.1)
                     }
                     CargoMessage::BuildFinished { success } => (Some(success), last.1),
+                    CargoMessage::CompilerArtifact {  } => last,
+                    
                 },
             );
 
